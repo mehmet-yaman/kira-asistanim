@@ -13,6 +13,8 @@ flutter run
 
 Uygulama kimliği `com.mehmetyaman.kiraasistanim`, hedef Android API 36'dır.
 
+Hesaplayıcı ilk sözleşme tarihini ister. Tarih geçmişte olmalıdır; 5 ve 10 yıllık eşiklerde koşullu bilgilendirme gösterilir. Kullanıcı TÜİK referans oranının altında veya üstünde bir oranla matematiksel hesaplama yapabilir. Bu sözleşmeye uygulanacak yasal bedeli belirlemez. Kira ve ödeme takibi için [sonraki aşama notları](release/next-phase.md) vardır.
+
 ## Oran güncellemesi
 
 Uygulama açılışta `https://mehmet-yaman.github.io/kira-asistanim/data/rate.json` dosyasını okur. Ağ yoksa son doğrulanmış oranı veya pakete gömülü `assets/rate.json` verisini kullanır. 45 günden eski veride kullanıcıya uyarı gösterir ve elle oran girişine geçer.

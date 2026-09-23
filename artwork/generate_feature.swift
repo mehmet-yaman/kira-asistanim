@@ -10,26 +10,25 @@ let context = NSGraphicsContext(bitmapImageRep: bitmap)!
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = context
 
-NSColor(deviceRed: 71/255, green: 59/255, blue: 131/255, alpha: 1).setFill()
+NSColor(deviceRed: 48/255, green: 43/255, blue: 94/255, alpha: 1).setFill()
 NSRect(x: 0, y: 0, width: width, height: height).fill()
+NSColor(deviceRed: 69/255, green: 64/255, blue: 120/255, alpha: 0.75).setFill()
+NSBezierPath(ovalIn: NSRect(x: -160, y: 250, width: 370, height: 370)).fill()
+NSColor(deviceRed: 57/255, green: 52/255, blue: 109/255, alpha: 1).setFill()
+NSBezierPath(ovalIn: NSRect(x: 720, y: -210, width: 470, height: 470)).fill()
 
 let titleStyle: [NSAttributedString.Key: Any] = [
-    .font: NSFont.systemFont(ofSize: 64, weight: .bold),
+    .font: NSFont.systemFont(ofSize: 64, weight: .heavy),
     .foregroundColor: NSColor.white,
 ]
 let subtitleStyle: [NSAttributedString.Key: Any] = [
     .font: NSFont.systemFont(ofSize: 30, weight: .medium),
-    .foregroundColor: NSColor(calibratedRed: 1, green: 0.75, blue: 0.59, alpha: 1),
+    .foregroundColor: NSColor(deviceRed: 255/255, green: 183/255, blue: 131/255, alpha: 1),
 ]
-("Kira Asistanım" as NSString).draw(at: NSPoint(x: 72, y: 278), withAttributes: titleStyle)
-("Yeni kiranı kolayca hesapla" as NSString).draw(at: NSPoint(x: 76, y: 218), withAttributes: subtitleStyle)
-NSColor(deviceRed: 1, green: 0.99, blue: 0.97, alpha: 1).setFill()
-NSBezierPath(ovalIn: NSRect(x: 685, y: 105, width: 290, height: 290)).fill()
-let symbolStyle: [NSAttributedString.Key: Any] = [
-    .font: NSFont.systemFont(ofSize: 210, weight: .bold),
-    .foregroundColor: NSColor(deviceRed: 71/255, green: 59/255, blue: 131/255, alpha: 1),
-]
-("₺" as NSString).draw(at: NSPoint(x: 762, y: 135), withAttributes: symbolStyle)
+("Kira Asistanım" as NSString).draw(at: NSPoint(x: 72, y: 265), withAttributes: titleStyle)
+("Yeni kiranı kolayca hesapla" as NSString).draw(at: NSPoint(x: 76, y: 202), withAttributes: subtitleStyle)
+let icon = NSImage(contentsOfFile: "artwork/icon-1024.png")!
+icon.draw(in: NSRect(x: 685, y: 104, width: 292, height: 292))
 
 context.flushGraphics()
 NSGraphicsContext.restoreGraphicsState()

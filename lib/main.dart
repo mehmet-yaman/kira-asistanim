@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'contract_age.dart';
 import 'rate_data.dart';
 import 'rent_math.dart';
 
@@ -28,7 +29,7 @@ class KiraApp extends StatelessWidget {
         primary: const Color(0xFF473B83),
         secondary: const Color(0xFFF18F59),
       ),
-      scaffoldBackgroundColor: const Color(0xFFF7F5F0),
+      scaffoldBackgroundColor: const Color(0xFFFAF8F5),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -37,6 +38,10 @@ class KiraApp extends StatelessWidget {
           vertical: 17,
         ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF51478B), width: 2),
+        ),
       ),
     ),
     home: const CalculatorPage(),
@@ -63,6 +68,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _manual = false;
   bool _loading = true;
   String? _error;
+  DateTime? _contractStart;
 
   @override
   void initState() {
@@ -111,6 +117,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
   }
 
+  Future<void> _pickContractStart() async {
+    final today = DateTime.now();
+    final yesterday = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(const Duration(days: 1));
+    final selected = await showDatePicker(
+      context: context,
+      initialDate:
+          _contractStart ?? DateTime(today.year - 1, today.month, today.day),
+      firstDate: DateTime(1900),
+      lastDate: yesterday,
+      helpText: 'İlk sözleşme başlangıç tarihi',
+      cancelText: 'İptal',
+      confirmText: 'Seç',
+    );
+    if (selected != null && mounted) setState(() => _contractStart = selected);
+  }
+
   @override
   void dispose() {
     _rentController.dispose();
@@ -126,164 +152,279 @@ class _CalculatorPageState extends State<CalculatorPage> {
         : _rate?.rateHundredths;
     final validRent = rent != null && rent > 0;
     final validRate = rate != null && rate >= 0;
-    final result = validRent && validRate
+    final result = validRent && validRate && _contractStart != null
         ? calculateIncrease(rent, rate)
         : null;
     final stale = _rate?.isStale(DateTime.now()) ?? true;
+    final contractYears = _contractStart == null
+        ? null
+        : completedContractYears(_contractStart!, DateTime.now());
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 34),
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF473B83),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.home_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    const Text(
-                      'Kira Asistanım',
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF0EDFA),
+                    Color(0xFFFAF8F5),
+                    Color(0xFFF5F9F6),
                   ],
+                  stops: [0, 0.52, 1],
                 ),
-                const SizedBox(height: 30),
-                const Text(
-                  'Yeni kiranı\nkolayca hesapla.',
-                  style: TextStyle(
-                    fontSize: 36,
-                    height: 1.13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF24213B),
-                  ),
-                ),
-                const SizedBox(height: 11),
-                const Text(
-                  'Mevcut kiranı ve artış oranını gir; aylık farkı hemen gör.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.4,
-                    color: Color(0xFF696577),
-                  ),
-                ),
-                const SizedBox(height: 25),
-                _rateCard(stale),
-                const SizedBox(height: 24),
-                const Text(
-                  'Mevcut aylık kira',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 9),
-                TextField(
-                  controller: _rentController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: 'Örn. 15.000,00',
-                    prefixIcon: Icon(Icons.payments_outlined),
-                    suffixText: 'TL',
-                  ),
-                ),
-                if (_rentController.text.isNotEmpty && !validRent)
-                  const _InputError('Sıfırdan büyük, geçerli bir tutar girin.'),
-                const SizedBox(height: 25),
-                const Text(
-                  'Artış oranı',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(
-                      value: false,
-                      label: Text('TÜİK oranı'),
-                      icon: Icon(Icons.auto_awesome_outlined),
-                    ),
-                    ButtonSegment(
-                      value: true,
-                      label: Text('Kendi oranım'),
-                      icon: Icon(Icons.edit_outlined),
-                    ),
-                  ],
-                  selected: {_manual},
-                  onSelectionChanged: (s) => setState(() => _manual = s.first),
-                  showSelectedIcon: false,
-                ),
-                const SizedBox(height: 12),
-                if (_manual)
-                  TextField(
-                    controller: _rateController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Örn. 31,12',
-                      prefixIcon: Icon(Icons.percent_rounded),
-                      suffixText: '%',
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.all(17),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _rate == null
-                          ? 'Oran yükleniyor…'
-                          : '%${formatHundredths(_rate!.rateHundredths)}',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF473B83),
-                      ),
-                    ),
-                  ),
-                if (_manual && _rateController.text.isNotEmpty && !validRate)
-                  const _InputError(
-                    'Sıfır veya daha büyük, geçerli bir oran girin.',
-                  ),
-                const SizedBox(height: 24),
-                _resultCard(result),
-                const SizedBox(height: 23),
-                const Text(
-                  'Bu araç yalnızca girdiğiniz tutar ve oranla matematiksel hesaplama yapar. '
-                  'Sözleşmenize uygulanacak oran farklı olabilir; sonuç hukuki görüş değildir.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: Color(0xFF696577),
-                  ),
-                ),
-                const SizedBox(height: 19),
-                TextButton.icon(
-                  onPressed: () => _open(RateRepository.privacyUrl),
-                  icon: const Icon(Icons.privacy_tip_outlined, size: 18),
-                  label: const Text('Gizlilik politikası'),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+          Positioned(
+            top: -145,
+            right: -155,
+            child: IgnorePointer(
+              child: Container(
+                width: 340,
+                height: 340,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0x4AD8D0F3),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 34),
+                  children: [
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.asset(
+                            'assets/brand-icon.png',
+                            width: 48,
+                            height: 48,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        const SizedBox(width: 13),
+                        const Text(
+                          'Kira Asistanım',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Yeni kiranı\nkolayca hesapla.',
+                      style: TextStyle(
+                        fontSize: 36,
+                        height: 1.13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF24213B),
+                      ),
+                    ),
+                    const SizedBox(height: 11),
+                    const Text(
+                      'Mevcut kiranı ve artış oranını gir; aylık farkı hemen gör.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        color: Color(0xFF696577),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    _rateCard(stale),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'İlk sözleşme başlangıç tarihi',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    OutlinedButton.icon(
+                      onPressed: _pickContractStart,
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: Text(
+                        _contractStart == null
+                            ? 'Geçmiş bir tarih seçin'
+                            : DateFormat(
+                                'd MMMM yyyy',
+                                'tr_TR',
+                              ).format(_contractStart!),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        minimumSize: const Size.fromHeight(56),
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                    if (contractYears != null) ...[
+                      if (contractYears >= 5) ...[
+                        const SizedBox(height: 12),
+                        const _Notice(
+                          icon: Icons.balance_outlined,
+                          text:
+                              'İlk sözleşmenin üzerinden en az 5 yıl geçmiş. '
+                              'Kira bedelinin yeniden belirlenmesi mahkemeden istenebilir; '
+                              'bu hesaplama yeni bedeli kendiliğinden belirlemez (TBK 344–345).',
+                        ),
+                      ],
+                      if (contractYears >= 10) ...[
+                        const SizedBox(height: 8),
+                        const _Notice(
+                          icon: Icons.info_outline,
+                          text:
+                              'İlk sözleşmenin üzerinden en az 10 yıl geçmiş. '
+                              'Bu süre tek başına tahliye hakkı doğurmaz. Belirli süreli '
+                              'sözleşmelerde 10 yıllık uzama süresi ve süresinde yazılı '
+                              'bildirim gibi koşullar ayrıca değerlendirilir (TBK 347–348).',
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Mevcut aylık kira',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    TextField(
+                      controller: _rentController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        hintText: 'Örn. 15.000,00',
+                        prefixIcon: Icon(Icons.payments_outlined),
+                        suffixText: 'TL',
+                      ),
+                    ),
+                    if (_rentController.text.isNotEmpty && !validRent)
+                      const _InputError(
+                        'Sıfırdan büyük, geçerli bir tutar girin.',
+                      ),
+                    const SizedBox(height: 25),
+                    const Text(
+                      'Artış oranı',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(
+                          value: false,
+                          label: Text('TÜİK oranı'),
+                          icon: Icon(Icons.auto_awesome_outlined),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          label: Text('Kendi oranım'),
+                          icon: Icon(Icons.edit_outlined),
+                        ),
+                      ],
+                      selected: {_manual},
+                      onSelectionChanged: (s) =>
+                          setState(() => _manual = s.first),
+                      showSelectedIcon: false,
+                    ),
+                    const SizedBox(height: 12),
+                    if (_manual)
+                      TextField(
+                        controller: _rateController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Örn. 31,12',
+                          prefixIcon: Icon(Icons.percent_rounded),
+                          suffixText: '%',
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(17),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          _rate == null
+                              ? 'Oran yükleniyor…'
+                              : '%${formatHundredths(_rate!.rateHundredths)}',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF473B83),
+                          ),
+                        ),
+                      ),
+                    if (_manual &&
+                        _rateController.text.isNotEmpty &&
+                        !validRate)
+                      const _InputError(
+                        'Sıfır veya daha büyük, geçerli bir oran girin.',
+                      ),
+                    if (_manual && validRate && _rate != null) ...[
+                      const SizedBox(height: 10),
+                      _Notice(
+                        icon: rate > _rate!.rateHundredths
+                            ? Icons.warning_amber_rounded
+                            : Icons.info_outline,
+                        text: rate > _rate!.rateHundredths
+                            ? 'Seçtiğiniz oran, gösterilen TÜİK referans oranı '
+                                  'olan %${formatHundredths(_rate!.rateHundredths)} değerinin üzerinde. '
+                                  'Hesabı görebilirsiniz; tutarın hukuken uygulanabilir '
+                                  'olduğu anlamına gelmez.'
+                            : 'Seçtiğiniz oran, gösterilen TÜİK referans oranı '
+                                  'olan %${formatHundredths(_rate!.rateHundredths)} değerinin '
+                                  '${rate == _rate!.rateHundredths ? 'aynısı' : 'altında'}. '
+                                  'Hesap seçtiğiniz oranla yapılır.',
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    _resultCard(result),
+                    if (_contractStart == null)
+                      const _InputError(
+                        'Sonucu görmek için ilk sözleşme tarihini seçin.',
+                      ),
+                    const SizedBox(height: 23),
+                    const Text(
+                      'Bu araç yalnızca girdiğiniz tutar ve oranla matematiksel hesaplama yapar. '
+                      'Sözleşmenize uygulanacak oran farklı olabilir; sonuç hukuki görüş değildir.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: Color(0xFF696577),
+                      ),
+                    ),
+                    const SizedBox(height: 19),
+                    TextButton.icon(
+                      onPressed: () => _open(RateRepository.privacyUrl),
+                      icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                      label: const Text('Gizlilik politikası'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -293,8 +434,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Container(
       padding: const EdgeInsets.all(19),
       decoration: BoxDecoration(
-        color: const Color(0xFFEDEAF8),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEAE6F9), Color(0xFFF6F3FE)],
+        ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDCD6F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,6 +487,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
               '${rate.periodLabel} dönemi · ${rate.publishedLabel} yayımlandı',
               style: const TextStyle(fontSize: 13, color: Color(0xFF696577)),
             ),
+            const SizedBox(height: 5),
+            const Text(
+              'Bu son yayımlanan referans orandır. Sözleşmenin yenileme '
+              'tarihinde geçerli oran farklı olabilir.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF696577)),
+            ),
             const SizedBox(height: 7),
             TextButton.icon(
               onPressed: () => _open(rate.sourceUrl),
@@ -364,7 +516,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   Widget _resultCard(RentResult? result) => Container(
     padding: const EdgeInsets.all(22),
     decoration: BoxDecoration(
-      color: const Color(0xFF473B83),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF302B5E), Color(0xFF51478B)],
+      ),
       borderRadius: BorderRadius.circular(22),
       boxShadow: const [
         BoxShadow(
@@ -423,5 +579,38 @@ class _InputError extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 7),
     child: Text(message, style: const TextStyle(color: Color(0xFFAF4039))),
+  );
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF2E8),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 19, color: const Color(0xFF924B25)),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF633D2D),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }
